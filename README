@@ -1,6 +1,10 @@
-BADALISK
+BADALISK vsn 1.0
 
 A proxy server written in Erlang
+
+To install use:
+
+$ make
 
 To run use:
 
