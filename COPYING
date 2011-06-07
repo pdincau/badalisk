@@ -4,6 +4,7 @@
 %% Part of this code is based on Sean Hinde's tutorial:
 %% "A fast web server demonstrating some undocumented Erlang features" 
 %% <http://www.trapexit.org/A_fast_web_server_demonstrating_some_undocumented_Erlang_features>
+%% Copyright (C), Sean Hinde
 %%
 %% BSD License
 %% 
