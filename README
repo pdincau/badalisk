@@ -10,3 +10,8 @@ To run use:
 
 $ erl -boot badalisk_rel-1
 
+In case of problems compliling try:
+
+$ erl -pa ./ebin
+1> systools:make_script("badalisk_rel-1", [local]).
+ok
