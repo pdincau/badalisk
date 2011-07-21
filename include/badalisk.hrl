@@ -1,10 +1,13 @@
--define(PORT, badalisk_utility:get_conf_value(port)).
--define(TIMEOUT, badalisk_utility:get_conf_value(timeout)).
--define(DEFAULTCOMPRESSION, badalisk_utility:get_conf_value(def_compression)).
--define(LOGFILE, badalisk_utility:get_conf_value(logfile)).
--define(BADWORDS, badalisk_utility:get_conf_value(badwords)).
--define(BLACKLISTED, badalisk_utility:get_conf_value(blacklist)).
--define(CENSORSHIPLEVEL, badalisk_utility:get_conf_value(censorship_level)).
+%% Badalisk include file
+
+-define(PORT, badalisk_conf:lookup(port)).
+-define(SSLPORT, badalisk_conf:lookup(sslport)).
+-define(TIMEOUT, badalisk_conf:lookup(timeout)).
+-define(DEFAULTCOMPRESSION, badalisk_conf:lookup(def_compression)).
+-define(LOGFILE, badalisk_conf:lookup(logfile)).
+-define(BADWORDS, badalisk_conf:lookup(badwords)).
+-define(BLACKLISTED, badalisk_conf:lookup(blacklist)).
+-define(CENSORSHIPLEVEL, badalisk_conf:lookup(censorship_level)).
 
 -define(STATUS_202, {"HTTP/1.1", 202, "OK"}).
 -define(STATUS_403, {"HTTP/1.1", 403, "Forbidden"}).
@@ -33,7 +36,7 @@
 	      headers,				% [{Tag, Val}]
 	      body = <<>>}).			% Content Body
 
--record(res, {content_length,
-	      status,                          
-	      headers,                         % [{Tag, Val}]
-	      body = <<>>}).                   % Content Body
+-record(res, {content_length,                   % Integer
+	      status,                           % {Vsn, Code, Explanation})
+	      headers,                          % [{Tag, Val}]
+	      body = <<>>}).                    % Content Body
