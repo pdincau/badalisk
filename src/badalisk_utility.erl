@@ -109,7 +109,7 @@ has_bad_content(Data) ->
 %%              configuration file.
 %%--------------------------------------------------------------------
 apply_censorship(#res{body=Body} = Res) ->
-    case badalisk_utility:has_bad_content(Body) of
+    case has_bad_content(Body) of
 	true ->
 	    error_logger:info_msg("(~p: ~p) : Content blocked.~n", [self(), ?MODULE]),
 	    Res#res{status=?STATUS_403, headers=[], body=?CONTENTBLOCKED};
