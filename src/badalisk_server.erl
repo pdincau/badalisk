@@ -18,9 +18,12 @@
 
 -export([create/1]).
 
--record(state, {listen_socket,
-		port,
-		acceptor}).
+-record(acceptor, {pid,
+		   listen_socket,
+		   socket_mode,
+		   port}).
+
+-record(state, {acceptors}).
 
 -include("../include/badalisk.hrl").
 
@@ -59,9 +62,11 @@ init([]) ->
 				{backlog, 30}]) of
 	{ok, Listen} ->
 	    Pid = badalisk_socket:start_link(Listen, ?PORT),
-	    {ok, #state{listen_socket = Listen,
-			port = ?PORT, 
-			acceptor = Pid}};
+	    Acceptor = #acceptor{pid = Pid,
+				 listen_socket = Listen,
+				 port = ?PORT,
+				 socket_mode = http},
+	    {ok, #state{acceptors = [Acceptor]}};
 	{error, Reason} ->
 	    {stop, Reason}
     end.
@@ -75,6 +80,10 @@ init([]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+handle_call(status, _From, #state{acceptors = Acceptors} = State) ->
+    Reply = Acceptors,
+    {reply, Reply, State};
+    
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -85,9 +94,12 @@ handle_call(_Request, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({create, _Pid}, #state{listen_socket = ListenSocket} = State) ->
-    NewPid = badalisk_socket:start_link(ListenSocket, State#state.port),
-    {noreply, State#state{acceptor = NewPid}};
+handle_cast({create, Pid}, #state{acceptors = Acceptors} = State) ->
+    OldAcceptor = lists:keyfind(Pid, #acceptor.pid, Acceptors),
+    NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),   
+    NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
+    io:format("Acceptors pids are: ~p~n", [[NewAcceptor|Acceptors]]),
+    {noreply, State#state{acceptors = [NewAcceptor|Acceptors]}};
 
 handle_cast(stop, State) ->
         {stop, normal, State};
@@ -101,15 +113,22 @@ handle_cast(_Msg, State) ->
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
-handle_info({'EXIT', Pid, normal}, #state{acceptor = Pid} = State) ->
-    {noreply, State};
+handle_info({'EXIT', Pid, normal}, #state{acceptors = Acceptors} = State) ->
+    io:format("Acceptor ~p  exited normally.~n", [Pid]),
+    io:format("New state is ~p~n", [lists:keydelete(Pid, #acceptor.pid, Acceptors)]),
+    {noreply, State#state{acceptors = lists:keydelete(Pid, #acceptor.pid, Acceptors)}};
 
-handle_info({'EXIT', Pid, _Abnormal}, #state{acceptor = Pid} = State) ->
-    timer:sleep(2000),
-    badalisk_socket:start_link(State#state.listen_socket, State#state.port),
-    {noreply, State};
+handle_info({'EXIT', Pid, _Abnormal}, #state{acceptors = Acceptors} = State) ->
+    OldAcceptor = lists:keyfind(Pid, #acceptor.pid, Acceptors),
+    io:format("Acceptor ~p exited abnormally...~nRestarting it...~n", [Pid]),
+    NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),
+    io:format("Acceptor ~p restarted with pid ~p!~n", [Pid, NewPid]),
+    NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
+    io:format("New state is ~p~n", [[NewAcceptor|lists:keydelete(Pid, #acceptor.pid, Acceptors)]]),
+    {noreply, State#state{acceptors = [NewAcceptor|lists:keydelete(Pid, #acceptor.pid, Acceptors)]}};
 
 handle_info(_Info, State) ->
+    io:format("info received as: ~p~n", [_Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -120,7 +139,10 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, State) ->
-    gen_tcp:close(State#state.listen_socket),
+    Close = fun(Acceptor) ->
+		    gen_tcp:close(Acceptor#acceptor.listen_socket)
+	    end,
+    lists:foreach(Close, State#state.acceptors),
     ok.
 
 %%--------------------------------------------------------------------
