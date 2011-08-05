@@ -16,7 +16,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--export([lookup/1, update/2]).
+-export([lookup/1, update/2, revert/0, change_conf_file/1]).
 
 -define(SERVER, ?MODULE).
 
@@ -69,6 +69,16 @@ handle_call({update, {Tag, Value}}, _From, State) ->
     NewConf = lists:keyreplace(Tag, 1, State#state.conf, {Tag, Value}),
     Reply = ok,
     {reply, Reply, State#state{conf=NewConf}};
+    
+handle_call(revert, _From, State) ->
+    {ok, NewConf} = file:consult("priv/badalisk.cfg"),
+    Reply = ok,
+    {reply, Reply, State#state{conf=NewConf}};
+
+handle_call({change_conf_file, Path}, _From, State) ->
+    {ok, NewConf} = file:consult(Path),
+    Reply = ok,
+    {reply, Reply, State#state{conf=NewConf}};
 
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -117,4 +127,9 @@ lookup(Tag) ->
 
 update(Tag, Value) -> 
     gen_server:call(?MODULE, {update, {Tag, Value}}).
+    
+revert() -> 
+    gen_server:call(?MODULE, revert).
 
+change_conf_file(Path) ->
+    gen_server:call(?MODULE, {change_conf_file, Path}).

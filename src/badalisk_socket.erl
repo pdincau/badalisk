@@ -39,7 +39,11 @@ init({ListenSocket, ListenPort}) ->
                    peer_port = Port},
 	    request(C, #req{});
 	Error ->
+<<<<<<< HEAD
 	    error_logger:error_report([{application, badalisk}, "Accept failed error", io_lib:format("~p",[Error])]),
+=======
+	    error_logger:error_report("Accept failed with error: ~p~n", [Error]),
+>>>>>>> upstream/master
 	    exit({error, accept_failed})
     end.
 

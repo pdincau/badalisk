@@ -98,7 +98,7 @@ handle_cast({create, Pid}, #state{acceptors = Acceptors} = State) ->
     OldAcceptor = lists:keyfind(Pid, #acceptor.pid, Acceptors),
     NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),   
     NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
-    io:format("Acceptors pids are: ~p~n", [[NewAcceptor|Acceptors]]),
+    error_logger:info_msg("Acceptor pids are: ~p.~n", [[NewAcceptor|Acceptors]]),
     {noreply, State#state{acceptors = [NewAcceptor|Acceptors]}};
 
 handle_cast(stop, State) ->
@@ -114,21 +114,28 @@ handle_cast(_Msg, State) ->
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
 handle_info({'EXIT', Pid, normal}, #state{acceptors = Acceptors} = State) ->
-    io:format("Acceptor ~p  exited normally.~n", [Pid]),
-    io:format("New state is ~p~n", [lists:keydelete(Pid, #acceptor.pid, Acceptors)]),
-    {noreply, State#state{acceptors = lists:keydelete(Pid, #acceptor.pid, Acceptors)}};
+    error_logger:info_msg("Acceptor ~p: exited normally.~n", [Pid]),
+    NewState = State#state{acceptors = lists:keydelete(Pid, #acceptor.pid, Acceptors)},
+    error_logger:info_msg("Current acceptors are: ~p~n", [NewState]),
+    {noreply, NewState};
 
 handle_info({'EXIT', Pid, _Abnormal}, #state{acceptors = Acceptors} = State) ->
+    error_logger:info_msg("Acceptor ~p: exited abnormally.~n", [Pid]),
     OldAcceptor = lists:keyfind(Pid, #acceptor.pid, Acceptors),
-    io:format("Acceptor ~p exited abnormally...~nRestarting it...~n", [Pid]),
-    NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),
-    io:format("Acceptor ~p restarted with pid ~p!~n", [Pid, NewPid]),
-    NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
-    io:format("New state is ~p~n", [[NewAcceptor|lists:keydelete(Pid, #acceptor.pid, Acceptors)]]),
-    {noreply, State#state{acceptors = [NewAcceptor|lists:keydelete(Pid, #acceptor.pid, Acceptors)]}};
+    SameTypeAcceptors = [Acceptor || Acceptor <- Acceptors, Acceptor#acceptor.socket_mode =:= OldAcceptor#acceptor.socket_mode],
+    NewState = case lists:flatlength(SameTypeAcceptors) of
+		   0 ->
+		       NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),
+		       NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
+		       State#state{acceptors = [NewAcceptor|lists:keydelete(Pid, #acceptor.pid, Acceptors)]};
+		   _ ->
+		       State#state{acceptors = lists:keydelete(Pid, #acceptor.pid, Acceptors)}
+	       end,
+    error_logger:info_msg("Current acceptors are: ~p~n", [NewState]),
+    {noreply, NewState};
 
-handle_info(_Info, State) ->
-    io:format("info received as: ~p~n", [_Info]),
+handle_info(Info, State) ->
+    error_logger:info_msg("Info received: (~p).~n", [Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -139,10 +146,7 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, State) ->
-    Close = fun(Acceptor) ->
-		    gen_tcp:close(Acceptor#acceptor.listen_socket)
-	    end,
-    lists:foreach(Close, State#state.acceptors),
+    [gen_tcp:close(Acceptor#acceptor.listen_socket) || Acceptor <- State#state.acceptors],
     ok.
 
 %%--------------------------------------------------------------------
