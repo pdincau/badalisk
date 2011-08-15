@@ -40,3 +40,12 @@
 	      status,                           % {Vsn, Code, Explanation})
 	      headers,                          % [{Tag, Val}]
 	      body = <<>>}).                    % Content Body
+
+%%----------------------------------------------------------------------
+%% LOGGING OPTIONS
+%%----------------------------------------------------------------------
+-define(DEBUG(Format, Args), badalisk_logger:debug_msg(?MODULE, ?LINE, Format, Args)).
+-define(INFO_MSG(Format, Args), badalisk_logger:info_msg(?MODULE, ?LINE, Format, Args)).
+-define(WARNING_MSG(Format, Args), badalisk_logger:warning_msg(?MODULE, ?LINE, Format, Args)).
+-define(ERROR_MSG(Format, Args), badalisk_logger:error_msg(?MODULE, ?LINE, Format, Args)).
+-define(CRITICAL_MSG(Format, Args), badalisk_logger:critical_msg(?MODULE, ?LINE, Format, Args)).
