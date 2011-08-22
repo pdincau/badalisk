@@ -54,7 +54,15 @@ stop() ->
 %%--------------------------------------------------------------------
 init([]) ->
     process_flag(trap_exit, true),
-    add_file_logger(),
+    % Load the badalisk_logger module
+    badalisk_loglevel:set(badalisk_conf:lookup(loglevel)),
+    %% adding the disk_logger handler or creating the text file
+    case badalisk_conf:lookup(logmode) of
+	disk_log ->
+	    badalisk_disk_logger:add_handler([self()]);
+	file ->
+	    add_file_logger()
+    end,
     case gen_tcp:listen(?PORT, [binary, 
 				{packet, http},
 				{reuseaddr, true},
@@ -66,8 +74,10 @@ init([]) ->
 				 listen_socket = Listen,
 				 port = ?PORT,
 				 socket_mode = http},
+	    ?INFO_MSG("badalisk_server started", []),
 	    {ok, #state{acceptors = [Acceptor]}};
 	{error, Reason} ->
+	    ?CRITICAL_MSG("Error during StartUp of badalisk_server", []),
 	    {stop, Reason}
     end.
 
@@ -147,7 +157,12 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 terminate(_Reason, State) ->
     [gen_tcp:close(Acceptor#acceptor.listen_socket) || Acceptor <- State#state.acceptors],
-    ok.
+    case badalisk_conf:lookup(logmode) of
+	disk_log ->
+	    badalisk_disk_logger:delete_handler(),
+	    ok;
+	_ -> ok
+    end.
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
