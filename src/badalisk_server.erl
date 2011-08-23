@@ -176,7 +176,7 @@ get_parallel_connections() ->
 handle_crashed_acceptor(OldAcceptor, Acceptors, State) ->
     SameTypeAcceptors = [Acceptor || Acceptor <- Acceptors, Acceptor#acceptor.socket_mode =:= OldAcceptor#acceptor.socket_mode],
     case lists:flatlength(SameTypeAcceptors) of
-	0 ->
+	1 ->
 	    NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),
 	    NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
 	    State#state{acceptors = [NewAcceptor|lists:keydelete(OldAcceptor#acceptor.pid, #acceptor.pid, Acceptors)]};
