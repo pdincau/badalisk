@@ -16,7 +16,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--export([create/1]).
+-export([create/1, get_parallel_connections/0]).
 
 -record(acceptor, {pid,
 		   listen_socket,
@@ -83,6 +83,10 @@ init([]) ->
 handle_call(status, _From, #state{acceptors = Acceptors} = State) ->
     Reply = Acceptors,
     {reply, Reply, State};
+
+handle_call(get_parallel, _From, #state{acceptors = Acceptors} = State) ->
+    Reply = lists:flatlength(Acceptors),
+    {reply, Reply, State};
     
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -113,25 +117,14 @@ handle_cast(_Msg, State) ->
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
-handle_info({'EXIT', Pid, normal}, #state{acceptors = Acceptors} = State) ->
-    error_logger:info_msg("Acceptor ~p: exited normally.~n", [Pid]),
-    NewState = State#state{acceptors = lists:keydelete(Pid, #acceptor.pid, Acceptors)},
-    error_logger:info_msg("Current acceptors are: ~p~n", [NewState]),
-    {noreply, NewState};
-
-handle_info({'EXIT', Pid, _Abnormal}, #state{acceptors = Acceptors} = State) ->
-    error_logger:info_msg("Acceptor ~p: exited abnormally.~n", [Pid]),
-    OldAcceptor = lists:keyfind(Pid, #acceptor.pid, Acceptors),
-    SameTypeAcceptors = [Acceptor || Acceptor <- Acceptors, Acceptor#acceptor.socket_mode =:= OldAcceptor#acceptor.socket_mode],
-    NewState = case lists:flatlength(SameTypeAcceptors) of
-		   0 ->
-		       NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),
-		       NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
-		       State#state{acceptors = [NewAcceptor|lists:keydelete(Pid, #acceptor.pid, Acceptors)]};
-		   _ ->
-		       State#state{acceptors = lists:keydelete(Pid, #acceptor.pid, Acceptors)}
+handle_info({'EXIT', Pid, Reason}, #state{acceptors = Acceptors} = State) ->
+    NewState = case lists:keyfind(Pid, #acceptor.pid, Acceptors) of
+		   false ->
+		       State;
+		   OldAcceptor ->
+		       error_logger:info_msg("Acceptor ~p: exited.~n", [Pid]),
+		       handle_crashed_acceptor(OldAcceptor, Acceptors, State)
 	       end,
-    error_logger:info_msg("Current acceptors are: ~p~n", [NewState]),
     {noreply, NewState};
 
 handle_info(Info, State) ->
@@ -172,3 +165,21 @@ add_file_logger() ->
     LogFile = lists:concat([?LOGFILE, '-', Y, ':', M, ':', D, '-', H, ':', Min, ':', S, ".log"]),
     ok = error_logger:logfile({open, LogFile}).
 
+%--------------------------------------------------------------------
+%% Function: get_parallel_connections() ->
+%% Description: Retrieve number of current parallel connections
+%%              
+%%--------------------------------------------------------------------
+get_parallel_connections() ->
+    gen_server:call(?SERVER, get_parallel).
+
+handle_crashed_acceptor(OldAcceptor, Acceptors, State) ->
+    SameTypeAcceptors = [Acceptor || Acceptor <- Acceptors, Acceptor#acceptor.socket_mode =:= OldAcceptor#acceptor.socket_mode],
+    case lists:flatlength(SameTypeAcceptors) of
+	0 ->
+	    NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),
+	    NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
+	    State#state{acceptors = [NewAcceptor|lists:keydelete(OldAcceptor#acceptor.pid, #acceptor.pid, Acceptors)]};
+	_ ->
+	    State#state{acceptors = lists:keydelete(OldAcceptor#acceptor.pid, #acceptor.pid, Acceptors)}
+    end.
