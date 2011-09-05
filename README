@@ -1,13 +1,77 @@
 BADALISK vsn 1.0
 
-A proxy server written in Erlang
+A proxy server written in Erlang.
 
-To install use:
+-------------------------------------------------------------------------
+1) INSTALLATION
+2) START BADALISK
+3) CONFIGURE BADALISK
+4) STOP BADALISK
+5) UNINSTALL
+6) VARIOUS
+
+-------------------------------------------------------------------------
+
+1) INSTALLATION:
+
+Badalisk proxy server can be installed using the Makefile.
+To install it go to the main directory with your shell and type:
 
 $ make
 
-To run use:
+All .beam files will be placed inside the ebin directory. 
+Badalisk comes with a simple configuration file. You will find it 
+inside the priv directory. 
+
+-------------------------------------------------------------------------
+
+2) START BADALISK:
+
+To start Badalisk use:
 
 $ erl -boot badalisk_rel-1
 
-For comments, questions or suggestions drop me a message.
+or:
+
+$ erl -pa ebin
+1> application:start(badalisk).
+
+Badalisk will be started in form of an Erlang application. 
+
+-------------------------------------------------------------------------
+
+3) CONFIGURE BADALISK
+
+User can change the configuration parameters calling in the Erlang shell badalisk_conf module.
+Configuration file can be switched at will:
+
+2> badalisk_conf:change_conf_file("yourdir/yourconf.cfg").
+
+User can also change only one parameter at time (e.g. change port number):
+
+3> badalisk_conf:update(port, 1235).
+
+Moreover user can bring Badalisk back to old configuration file using:
+
+4> badalisk_conf:revert().
+
+-------------------------------------------------------------------------
+
+4) STOP BADALISK
+
+To stop Badalisk use:
+
+5> application:stop(badalisk).
+
+-------------------------------------------------------------------------
+
+5) UNISTALL BADALISK:
+
+Badalisk can be uninstalled as:
+
+$ make clean
+-------------------------------------------------------------------------
+
+6) VARIOUS
+
+For comments, questions or suggestions drop us a message (see COPYING for mail address).

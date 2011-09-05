@@ -8,6 +8,14 @@
 -define(BADWORDS, badalisk_conf:lookup(badwords)).
 -define(BLACKLISTED, badalisk_conf:lookup(blacklist)).
 -define(CENSORSHIPLEVEL, badalisk_conf:lookup(censorship_level)).
+-define(MAXPARALLEL, badalisk_conf:lookup(max_parallel)).
+
+-define(DEBUG(Format, Args), badalisk_logger:debug_msg(?MODULE, ?LINE, Format, Args)).
+-define(INFO_MSG(Format, Args), badalisk_logger:info_msg(?MODULE, ?LINE, Format, Args)).
+-define(WARNING_MSG(Format, Args), badalisk_logger:warning_msg(?MODULE, ?LINE, Format, Args)).
+-define(ERROR_MSG(Format, Args), badalisk_logger:error_msg(?MODULE, ?LINE, Format, Args)).
+-define(CRITICAL_MSG(Format, Args), badalisk_logger:critical_msg(?MODULE, ?LINE, Format, Args)).
+
 
 -define(STATUS_202, {"HTTP/1.1", 202, "OK"}).
 -define(STATUS_403, {"HTTP/1.1", 403, "Forbidden"}).

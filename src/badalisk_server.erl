@@ -54,7 +54,10 @@ stop() ->
 %%--------------------------------------------------------------------
 init([]) ->
     process_flag(trap_exit, true),
-    add_file_logger(),
+
+    badalisk_loglevel:set(badalisk_conf:lookup(loglevel)),
+    badalisk_disk_logger:add_handler([self()]),
+    
     case gen_tcp:listen(?PORT, [binary, 
 				{packet, http},
 				{reuseaddr, true},
@@ -66,8 +69,10 @@ init([]) ->
 				 listen_socket = Listen,
 				 port = ?PORT,
 				 socket_mode = http},
+	    ?INFO_MSG("badalisk_server started", []),
 	    {ok, #state{acceptors = [Acceptor]}};
 	{error, Reason} ->
+	    ?CRITICAL_MSG("Error during StartUp of badalisk_server", []),
 	    {stop, Reason}
     end.
 
@@ -102,7 +107,7 @@ handle_cast({create, Pid}, #state{acceptors = Acceptors} = State) ->
     OldAcceptor = lists:keyfind(Pid, #acceptor.pid, Acceptors),
     NewPid = badalisk_socket:start_link(OldAcceptor#acceptor.listen_socket, OldAcceptor#acceptor.port),   
     NewAcceptor = OldAcceptor#acceptor{pid = NewPid},
-    error_logger:info_msg("Acceptor pids are: ~p.~n", [[NewAcceptor|Acceptors]]),
+    ?DEBUG("New acceptor started with pid: ~p", [Pid]),
     {noreply, State#state{acceptors = [NewAcceptor|Acceptors]}};
 
 handle_cast(stop, State) ->
@@ -122,13 +127,13 @@ handle_info({'EXIT', Pid, Reason}, #state{acceptors = Acceptors} = State) ->
 		   false ->
 		       State;
 		   OldAcceptor ->
-		       error_logger:info_msg("Acceptor ~p: exited.~n", [Pid]),
+		       ?DEBUG("Acceptor exited: ~p", [Pid]),
 		       handle_crashed_acceptor(OldAcceptor, Acceptors, State)
 	       end,
     {noreply, NewState};
 
 handle_info(Info, State) ->
-    error_logger:info_msg("Info received: (~p).~n", [Info]),
+    ?INFO_MSG("Info Message received: ~p", [Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -154,16 +159,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 create(Pid) ->
     gen_server:cast(?SERVER, {create, Pid}).
-
-%--------------------------------------------------------------------
-%% Function: add_file_logger() ->
-%% Description: Add file logger
-%%              
-%%--------------------------------------------------------------------
-add_file_logger() ->
-    {{Y,M,D},{H,Min,S}} = erlang:localtime(),
-    LogFile = lists:concat([?LOGFILE, '-', Y, ':', M, ':', D, '-', H, ':', Min, ':', S, ".log"]),
-    ok = error_logger:logfile({open, LogFile}).
 
 %--------------------------------------------------------------------
 %% Function: get_parallel_connections() ->

@@ -30,16 +30,24 @@ start_link(ListenSocket, ListenPort) ->
 init({ListenSocket, ListenPort}) ->
     case catch gen_tcp:accept(ListenSocket) of
 	{ok, Socket} ->
-	    badalisk_server:create(self()),
 	    {ok, {Addr, Port}} = inet:peername(Socket),
-	    error_logger:info_msg("(~p: ~p) : Accepted connection {~p,~p}~n", [self(), ?MODULE, Addr, Port]),
+	    badalisk_server:create(self()),
 	    C = #c{sock = Socket,
                    port = ListenPort,
                    peer_addr = Addr,
                    peer_port = Port},
-	    request(C, #req{});
+	    case badalisk_server:get_parallel_connections() < ?MAXPARALLEL of
+		true ->
+		    ?INFO_MSG("Acceptor established successful connection", []),
+		    %%error_logger:info_msg("(~p: ~p) : Accepted connection {~p,~p}~n", [self(), ?MODULE, Addr, Port]),
+		    request(C, #req{});
+		false ->
+		    ?WARNING_MSG("Limit on acceptors number reached. Connection refused.", []),
+		    send(C, [badalisk_utility:encode_status(?STATUS_501)]),
+		    exit(normal)
+	    end;
 	Error ->
-	    error_logger:error_report("Accept failed with error: ~p~n", [Error]),
+	    ?ERROR_MSG("Acceptor failed establishing connection with error: ~p", [Error]),
 	    exit({error, accept_failed})
     end.
 
@@ -175,7 +183,7 @@ build_response(Method, Url, Req) ->
 						  end,
 		  #res{status=Status, headers=Headers, body=Data};
 	      true ->
-	          error_logger:info_msg("(~p: ~p) : Refused request to url: ~p~n", [self(), ?MODULE, Url]),
+		  ?INFO_MSG("Refused request to url: ~p", [Url]),
 		  #res{status=?STATUS_403, headers=[], body=?CONTENTBLOCKED}
 	  end,
     PartialRes = badalisk_utility:apply_censorship(Res),
