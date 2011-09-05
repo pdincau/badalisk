@@ -39,7 +39,6 @@ init({ListenSocket, ListenPort}) ->
 	    case badalisk_server:get_parallel_connections() < ?MAXPARALLEL of
 		true ->
 		    ?INFO_MSG("Acceptor established successful connection", []),
-		    %%error_logger:info_msg("(~p: ~p) : Accepted connection {~p,~p}~n", [self(), ?MODULE, Addr, Port]),
 		    request(C, #req{});
 		false ->
 		    ?WARNING_MSG("Limit on acceptors number reached. Connection refused.", []),
